@@ -8,12 +8,17 @@ black = "*"
 isort = "*"
 flake8 = "*"
 mypy = "*"
+pylint = "*"
 
 [packages]
 black = "*"
 isort = "*"
 torch = "*"
 torchvision = "*"
+lock = "*"
 
 [requires]
 python_version = "3.8"
+
+[pipenv]
+allow_prereleases = true
