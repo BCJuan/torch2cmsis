@@ -1,6 +1,10 @@
+from typing import Dict
+from os import path
+from tqdm import tqdm
 import copy
 from torchvision.datasets import CIFAR10
 from torchvision.transforms import Compose, ToTensor, Normalize
+from torch.utils.data import TensorDataset
 from torch import nn
 import torch
 
@@ -31,7 +35,7 @@ def sample_from_class(data_set, k):
     test_data = []
     test_label = []
     for data, label in data_set:
-        class_i = label.item() if isinstance(label, Tensor) else label
+        class_i = label.item() if isinstance(label, torch.Tensor) else label
         class_counts[class_i] = class_counts.get(class_i, 0) + 1
         if class_counts[class_i] <= k:
             train_data.append(data)
@@ -40,10 +44,10 @@ def sample_from_class(data_set, k):
             test_data.append(data)
             test_label.append(label)
 
-    train_data = stack(train_data)
-    train_label = tensor(train_label, dtype=int64)
-    test_data = stack(test_data)
-    test_label = tensor(test_label, dtype=int64)
+    train_data = torch.stack(train_data)
+    train_label = torch.tensor(train_label, dtype=torch.int64)
+    test_data = torch.stack(test_data)
+    test_label = torch.tensor(test_label, dtype=torch.int64)
 
     return (
         TensorDataset(train_data, train_label),
@@ -58,7 +62,7 @@ def load_cifar():
         transform=transform_cifar10(),
         download=True
         )
-    val_set, tr_set = sample_from_class(trainset, 500)
+    val_set, tr_set = sample_from_class(train_set, 500)
     test_set = CIFAR10(
         root="./data/data_cifar10/",
         train=False,
@@ -70,40 +74,38 @@ def load_cifar():
 
 class SampleCNN(nn.Module):
 
-    def __init__(shape=(32, 32, 3), batch_size=4):
-
-        self.input_shape = input_shape
+    def __init__(self, shape=(3, 32, 32), batch_size=4):
+        super().__init__()
+        self.input_shape = shape
         self.batch_size = batch_size
+        
+        self.conv_block1 = nn.Sequential(
+            nn.Conv2d(
+                in_channels=3,
+                out_channels=16,
+                kernel_size=3),
+            nn.ReLU())
 
-        conv1 = nn.Conv2d(
-            in_channels=3,
-            out_channels=16,
-            kernel_size=3)
-        relu1 = nn.ReLU()
-        max1 = nn.MaxPool2d(kernel_size=2)
-        self.conv_block1 = nn.Sequential([conv1, relu1, max1])
-
-        conv2 = nn.Conv2d()
+        conv2 = nn.Conv2d(
             in_channels=16,
             out_channels=8,
             kernel_size=3)
         relu2 = nn.ReLU()
-        avg1 = nn.AvgPool2d(kernel_size=2)
-        self.conv_block2 = nn.Sequential([conv2, relu2, avg1])
+        self.conv_block2 = nn.Sequential(*[conv2, relu2])
 
         conv3 = nn.Conv2d(
             in_channels=8,
             out_channels=4,
             kernel_size=3)
         relu3 = nn.ReLU()
-        self.conv_block3 = nn.Sequential([conv3, relu3])
+        self.conv_block3 = nn.Sequential(*[conv3, relu3])
 
         self.flatten = nn.Flatten()
 
         self.interface_shape = self.get_shape()
         linear1 = nn.Linear(in_features=self.interface_shape.numel(), out_features=32)
         relu4 = nn.ReLU()
-        self.linear_block1 = nn.Sequential([linear1, relu4])
+        self.linear_block1 = nn.Sequential(*[linear1, relu4])
 
         self.linear2 = nn.Linear(in_features=32, out_features=10)
 
@@ -128,15 +130,14 @@ class SimpleTrainer:
     def __init__(
         self,
         datasets=None,
-        dataloaders=None
+        dataloaders=None,
         models_path=".",
         cuda="cuda:0",
     ):
         super().__init__()
         self.datasets = datasets
-        self.dtype = ddtype
         # TODO: choose GPU with less memory
-        self.devicy = device(cuda if torch.cuda.is_available() else "cpu")
+        self.devicy = torch.cuda.set_device(cuda if torch.cuda.is_available() else "cpu")
         self.datasizes = {
             i: len(sett) for i, sett in zip(["train", "val", "test"], self.datasets)
         }
@@ -175,7 +176,7 @@ class SimpleTrainer:
         """
         best_loss = 10**8
 
-        for _ in range(epochs):
+        for _ in tqdm(range(epochs)):
             for phase in ["train", "val"]:
                 if phase == "train":
                     model.train()  # Set model to training mode
@@ -183,16 +184,16 @@ class SimpleTrainer:
                     model.eval()  # Set model to evaluate mode
 
                 running_loss = 0.0
-                running_corrects = 0
+                running_corrects = 0.0
 
-                for inputs, labels in self.dataloader[phase]:
+                for inputs, labels in self.dataloaders[phase]:
 
                     inputs = inputs.to(self.devicy)
                     labels = labels.to(self.devicy)
  
                     optimizer.zero_grad()
 
-                    with set_grad_enabled(phase == "train"):
+                    with torch.set_grad_enabled(phase == "train"):
                         outputs = model(inputs)
                         _, preds = torch.max(outputs, 1)
                         loss = self.criterion(outputs, labels)
@@ -203,35 +204,35 @@ class SimpleTrainer:
 
                     # statistics
                     running_loss += loss.item() * labels.size(0)
-                    running_corrects += summ(preds == labels.data)
+                    running_corrects += torch.sum(preds == labels.data)
 
                     if phase == "train":
                         scheduler.step()
 
-                epoch_acc = running_corrects.double() / self.datasizes[phase]
-                epoch_loss = running_loss.double() / self.datasizes[phase]
+                epoch_acc = running_corrects / self.datasizes[phase]
+                epoch_loss = running_loss / self.datasizes[phase]
                 # deep copy the model
                 if phase == "val" and epoch_loss < best_loss:
                     best_loss = epoch_loss
                     best_model_wts = copy.deepcopy(model.state_dict())
 
         model.load_state_dict(best_model_wts)
-        save(model.state_dict(), path.join(self.models_path, str(name) + ".pth"))
+        torch.save(model.state_dict(), path.join(self.models_path, str(name) + ".pth"))
         return model
 
     def evaluate(self, net: nn.Module) -> float:
 
         correct = 0
         total = 0
-        data_loader = self.dataloader["test"]
+        data_loader = self.dataloaders["test"]
         net.eval()
-        with no_grad():
+        with torch.no_grad():
 
             for inputs, labels in data_loader:
                 inputs = inputs.to(device=self.devicy)
                 labels = labels.to(device=self.devicy)
                 outputs = net(inputs)
-                _, predicted = maxim(outputs.data, 1)
+                _, predicted = torch.max(outputs.data, 1)
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
 

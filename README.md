@@ -2,6 +2,17 @@
 
 Library for converting a neural network developed in Pytorch to CMSIS Legacy API. 
 
+## Main problems
+
++ Model needs a method which delivers the size of the interface between convolutions and the first fully connected layer. We need to solve this to make it automatic.
+    + See lines 283, 68 with the definition of `self.conv_linear_interface_shape`
++ The first fully connected layer encountered inside the model is considered to be the interface between the convolution layers and fully connected ones.
+    + See lines 283, 68 with the definition of `self.conv_linear_interface_shape`
+    + Clever way to distinguish this than choosing the layer regarding its number: if `name== IP1`
++ Max  pool still not implementedx
+
+
+
 ## Development
 
 + [ ] Layers:
