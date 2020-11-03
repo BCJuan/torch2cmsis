@@ -4,3 +4,4 @@ links.txt
 .vscode/
 examples/data/
 examples/*.pth
+*.pyc
