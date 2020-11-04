@@ -10,10 +10,10 @@ def convert_to_x4_q7_weights(weights):
     new_weights = np.copy(weights)
     new_weights = np.reshape(new_weights, (r*h*w*c))
     counter = 0
-    for i in range(int(num_of_rows)/4):
+    for i in range(int(num_of_rows)//4):
       # we only need to do the re-ordering for every 4 rows
       row_base = 4*i
-      for j in range (int(num_of_cols)/4):
+      for j in range (int(num_of_cols)//4):
         # for each 4 entries
         column_base = 4*j
         new_weights[counter]   =  weights[row_base  ][column_base  ]

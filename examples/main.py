@@ -31,6 +31,8 @@ def train_cifar(config):
     )
     cnn = trainer.train(cnn, config, config.get("name"))
     accuracy_test = trainer.evaluate(cnn)
+    cnn.to('cpu')
+    cnn.eval()
     print(accuracy_test)
     cmsis_converter = converter.CMSISConverter(
         cnn,
@@ -42,8 +44,7 @@ def train_cifar(config):
     )
     input, label, pred = converter.inference(cnn, dataloaders['val'])
     input.to('cpu')
-    cnn.to('cpu')
-    cnn.eval()
+
     cmsis_converter.quantize_input(input[0])
     cmsis_converter.generate_intermediate_values(input, cnn)
     cmsis_converter.convert_model_cmsis(cnn)
