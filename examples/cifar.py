@@ -137,7 +137,7 @@ class SimpleTrainer:
         super().__init__()
         self.datasets = datasets
         # TODO: choose GPU with less memory
-        self.devicy = torch.cuda.set_device(cuda if torch.cuda.is_available() else "cpu")
+        self.devicy = torch.cuda.device(cuda if torch.cuda.is_available() else "cpu")
         self.datasizes = {
             i: len(sett) for i, sett in zip(["train", "val", "test"], self.datasets)
         }

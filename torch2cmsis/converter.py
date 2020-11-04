@@ -6,10 +6,7 @@ import numpy as np
 import torch
 from torch import nn as nn
 
-sys.path.insert(0,'.')
-nnscript = os.path.abspath("../CMSIS_5/CMSIS/NN/Scripts/NNFunctions")
-sys.path.append(nnscript)
-from fully_connected_opt_weight_generation import (convert_q7_q15_weights,
+from .fully_connected_opt_weight_generation import (convert_q7_q15_weights,
                                                    convert_to_x4_q7_weights,
                                                    convert_to_x4_q15_weights)
 
