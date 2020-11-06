@@ -115,7 +115,7 @@ uint32_t network(q7_t* input)
 int main(int argc, char** argv)
 {
 	q7_t *input;
-    input = load("input.raw");
+    input = load("logs/input.raw");
     uint32_t index;
     index = network(input);
 	return 0;

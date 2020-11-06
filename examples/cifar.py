@@ -96,7 +96,7 @@ class SampleCNN(nn.Module):
         conv3 = nn.Conv2d(
             in_channels=8,
             out_channels=4,
-            kernel_size=3)
+            kernel_size=5)
         relu3 = nn.ReLU()
         self.conv_block3 = nn.Sequential(*[conv3, relu3])
 
