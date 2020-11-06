@@ -5,7 +5,7 @@ from torch2cmsis import converter
 
 CONFIG = {
     "batch_size": 8,
-    "epochs": 1,
+    "epochs": 5,
     "learning_rate": 0.001,
     "learning_step": 5000,
     "learning_gamma": 0.99,
@@ -35,16 +35,14 @@ def train_cifar(config):
     cnn.eval()
     print(accuracy_test)
     cmsis_converter = converter.CMSISConverter(
-        cnn,
+        "cfiles",
         "weights.h",
         "parameters.h",
-        "input.h",
-        "logging.h",
         weight_bits=8
     )
     input, label, pred = converter.inference(cnn, dataloaders['val'])
     input.to('cpu')
-
+    print(label, pred)
     cmsis_converter.quantize_input(input[0])
     cmsis_converter.generate_intermediate_values(input, cnn)
     cmsis_converter.convert_model_cmsis(cnn)

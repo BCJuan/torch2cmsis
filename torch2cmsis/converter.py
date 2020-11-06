@@ -32,41 +32,30 @@ class CMSISConverter:
         Kernels must be squared
     """
 
-    def __init__(self, model, weight_file_name, parameter_file_name,
-                 input_file_name, logging_file_name, weight_bits=8):
-        """
-        Creates both files
-        """
-        
+    def __init__(self, root, weight_file_name, parameter_file_name, weight_bits=8):
         
         #TODO: defined by user should be
-        self.root = "./cfiles"
-        self.io_folder = os.path.join(self.root, "weights")
+        self.root = root
+        self.io_folder = os.path.join(self.root, "logs")
         if not os.path.exists(self.io_folder):
             os.mkdir(self.io_folder)
 
         self.parameter_file_name =  os.path.join(self.root, parameter_file_name)
-        self.logging_file_name =  os.path.join(self.root, logging_file_name)
         self.weight_file_name =  os.path.join(self.root, weight_file_name)
-        self.input_file_name = os.path.join(self.root, input_file_name)
 
         parameter_file = open(self.parameter_file_name, "w")
         parameter_file.close()
-        logging_file = open(self.logging_file_name, "w")
-        logging_file.close()
         weight_file = open(self.weight_file_name, "w")
         weight_file.close()
-        input_file = open(self.weight_file_name, "w")
-        input_file.close()
 
-        self.weight_bits = weight_bits
-        # TODO: the image shape befor efully connected is only known because
-        # there is a function the model that gets it. Should be independent of tht function
-        self.conv_linear_interface_shape = torch.tensor(model.get_shape())
-
+        # define storage for maximum buffers in CMSIS
+        self.max_col_buffer = 0
+        self.max_fc_buffer = 0
+        
         # here we suppose an 8bit signed number in original range [0, 1]
         # which corresponds to range 7 fractional bits
-        self.input_frac_bits = 7 
+        self.input_frac_bits = weight_bits - 1
+        self.weight_bits = weight_bits
         self.fractional_bits = {}
 
         # for storing all convolution, pooling and linear params
@@ -99,6 +88,9 @@ class CMSISConverter:
         count_conv = 1
         count_linear = 1
         count_pool = 1
+        # TODO: the image shape befor efully connected is only known because
+        # there is a function the model that gets it. Should be independent of tht function
+        self.conv_linear_interface_shape = torch.tensor(model.get_shape())
 
         for module in model.modules():
             if isinstance(module, nn.Conv2d):
@@ -151,8 +143,12 @@ class CMSISConverter:
         self.params[self.param_prefix_name + "_IM_DIM"] = module.input_shape[-1]
         self.params[self.param_prefix_name + "_OUT_DIM"] = module.output_shape[-1]
 
-        self.logging[self.param_prefix_name + "_INPUT"] = self.quantize_tensor(module.input).numpy()
         self.logging[self.param_prefix_name + "_OUTPUT"] = self.quantize_tensor(module.output).numpy()
+
+        col_buffer = 2*module.in_channels*kernel*kernel
+        if self.max_col_buffer < col_buffer:
+            self.max_col_buffer = col_buffer
+            self.params["MAX_CONV_BUFFER_SIZE"] = self.max_col_buffer
         
     def save_params_pool(self, module):
 
@@ -178,7 +174,6 @@ class CMSISConverter:
         self.params[self.param_prefix_name + "_IM_DIM"] = module.input_shape[-1]
         self.params[self.param_prefix_name + "_OUT_DIM"] = module.output_shape[-1]
 
-        self.logging[self.param_prefix_name + "_INPUT"] = self.quantize_tensor(module.input).numpy()
         self.logging[self.param_prefix_name + "_OUTPUT"] = self.quantize_tensor(module.output).numpy()
         
     def save_params_linear(self, module):
@@ -190,8 +185,11 @@ class CMSISConverter:
             torch.tensor(
                 module.input_shape[-1:])).item()
 
-        self.logging[self.param_prefix_name + "_INPUT"] = self.quantize_tensor(module.input).numpy()
         self.logging[self.param_prefix_name + "_OUTPUT"] = self.quantize_tensor(module.output).numpy()
+
+        if self.max_fc_buffer < self.params[self.param_prefix_name + "_DIM"]:
+            self.max_fc_buffer = self.params[self.param_prefix_name + "_DIM"]
+            self.params["MAX_FC_BUFFER"] = self.max_fc_buffer
 
     def convert_module(self, module):
         # call compute output bias shifts
@@ -285,27 +283,9 @@ class CMSISConverter:
                         
 
     def write_io(self, name, weight):
-        weight.tofile(os.path.join(self.io_folder, '%s.raw'%(name)))
-        with open(self.input_file_name, "w+") as i_file:
-            i_file.write("#define INPUT {")
-            weight.tofile(i_file, sep=',')
-            i_file.write("}\n")
+        weight.tofile(os.path.join(self.root, '%s.raw'%(name)))
 
     def write_shifts_n_params(self):
-        """
-        Appends to the weight_file_name the shifts for the bias and the output
-
-        Args as part of self
-
-        Args
-        ----
-        self.weight_file_name:
-            the name of the file
-
-        self.fractional_bits:
-            the dictionary of fractional bits for each operation and
-            output of it
-        """
         with open(self.parameter_file_name, "w+") as w_file:
             for i, j in self.fractional_bits.items():
                 w_file.write("#define " + i + " " + str(j) + "\n")
@@ -313,9 +293,8 @@ class CMSISConverter:
                 w_file.write("#define " + i + " " + str(j) + "\n")
 
     def write_logging(self):
-        with open(self.logging_file_name, "w") as w_file:
-            for i, j in self.logging.items():
-                w_file.write(i + " " + str(j) + "\n")
+        for i, j in self.logging.items():
+            j.tofile(os.path.join(self.io_folder, str(i).lower() + "_torch.raw"))
     
     def write_weights(self, name, weight):
         with open(self.weight_file_name, "a") as w_file:
@@ -326,7 +305,6 @@ class CMSISConverter:
             w_file.write(str(np.prod(weight.shape)))
             w_file.write("\n")
             
-
 
     def evaluate_cmsis(self, exec_path, loader):
         correct = 0

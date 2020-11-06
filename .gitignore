@@ -5,3 +5,4 @@ links.txt
 examples/data/
 examples/*.pth
 *.pyc
+examples/cfiles/logs/
