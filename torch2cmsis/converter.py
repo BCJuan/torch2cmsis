@@ -157,18 +157,18 @@ class CMSISConverter:
 
     def convert_module(self, module):
         # call compute output bias shifts
-        # act_bits = self.weight_bits - 1 - compute_fractional_bits(
-        #     module.activation_post_process.min_val,
-        #     module.activation_post_process.max_val)
-        # inp_bits = self.weight_bits - 1 - compute_fractional_bits(
-        #     module.activation_pre_process.min_val,
-        #     module.activation_pre_process.max_val)
         act_bits = self.weight_bits - 1 - compute_fractional_bits(
-            module.output_min_val,
-            module.output_max_val)
+            module.activation_post_process.min_val,
+            module.activation_post_process.max_val)
         inp_bits = self.weight_bits - 1 - compute_fractional_bits(
-            module.input_min_val,
-            module.input_max_val)
+            module.activation_pre_process.min_val,
+            module.activation_pre_process.max_val)
+        # act_bits = self.weight_bits - 1 - compute_fractional_bits(
+        #     module.output_min_val,
+        #     module.output_max_val)
+        # inp_bits = self.weight_bits - 1 - compute_fractional_bits(
+        #     module.input_min_val,
+        #     module.input_max_val)
 
         # suposes that module has two named parameters: weight and bias
         self.compute_output_bias_shifts(module.weight,

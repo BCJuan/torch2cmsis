@@ -1,7 +1,7 @@
 from torch.utils.data import DataLoader
 from cifar import load_cifar, SampleCNN, SimpleTrainer, load_mnist
 from torch2cmsis import converter
-
+from quantize_utils import CMSISConverter, inference
 
 CONFIG = {
     "batch_size": 64,
@@ -37,21 +37,14 @@ def train_cifar(config):
     cnn.eval()
     
     print(accuracy_test)
-    cmsis_converter = converter.CMSISConverter(
-        cnn,
-        "cfiles",
-        "weights.h",
-        "parameters.h",
-        8
-    )
-    cmsis_converter.prepare_quantization(dataloaders['train'])
-    cmsis_converter.convert_model_cmsis()
-    input, label, pred = converter.inference(cnn, dataloaders['val'])
+    cm_converter = CMSISConverter(cnn, "weights.h", "parameters.h", "inputs.h", "logging.h")
+    input, label, pred = inference(cnn, dataloaders["train"])
     input.to('cpu')
     print(label, pred)
-    cmsis_converter.register_logging(input)
-    print("dasdasdad")
-    cmsis_converter.evaluate_cmsis("./main", dataloaders["test"])
+    cm_converter.quantize_input(input[0])
+    cm_converter.generate_intermediate_values(input, cnn)
+    cm_converter.convert_model_cmsis(cnn)
+    cm_converter.evaluate_cmsis("main", dataloaders['test'])
 
 if __name__ == "__main__":
     train_cifar(CONFIG)

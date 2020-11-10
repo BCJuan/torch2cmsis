@@ -16,7 +16,7 @@ def transform_cifar10():
     )
 
 def transform_mnist():
-    return Compose([ToTensor()])
+    return Compose([ToTensor(), Normalize((0.1307,), (0.3081,))])
 
 
 def sample_from_class(data_set, k):
@@ -101,47 +101,34 @@ class SampleCNN(nn.Module):
         self.conv_block1 = nn.Sequential(
             nn.Conv2d(
                 in_channels=shape[0],
-                out_channels=16,
-                kernel_size=5),
+                out_channels=8,
+                kernel_size=7),
             nn.ReLU())
 
         conv2 = nn.Conv2d(
-            in_channels=16,
-            out_channels=8,
-            kernel_size=5)
-        relu2 = nn.ReLU()
-        self.conv_block2 = nn.Sequential(*[conv2, relu2])
-
-        conv3 = nn.Conv2d(
             in_channels=8,
             out_channels=4,
-            kernel_size=5)
-        relu3 = nn.ReLU()
-        self.conv_block3 = nn.Sequential(*[conv3, relu3])
+            kernel_size=7)
+
+        relu2 = nn.ReLU()
+        self.conv_block2 = nn.Sequential(*[conv2, relu2])
 
         self.flatten = nn.Flatten()
 
         self.interface_shape = self.get_shape()
-        linear1 = nn.Linear(in_features=self.interface_shape.numel(), out_features=32)
-        relu4 = nn.ReLU()
-        self.linear_block1 = nn.Sequential(*[linear1, relu4])
-
-        self.linear2 = nn.Linear(in_features=32, out_features=10)
+        self.linear = nn.Linear(in_features=self.interface_shape.numel(), out_features=10)
 
     def get_shape(self):
         sample = torch.randn(size=(self.batch_size, *self.input_shape))
         out = self.conv_block1(sample)
         out = self.conv_block2(out)
-        out = self.conv_block3(out)
         return out.shape[1:]
     
     def forward(self, x):
         out = self.conv_block1(x)
         out = self.conv_block2(out)
-        out = self.conv_block3(out)
         out = self.flatten(out)
-        out = self.linear_block1(out)
-        return self.linear2(out)
+        return self.linear(out)
 
 
 class SimpleTrainer:
