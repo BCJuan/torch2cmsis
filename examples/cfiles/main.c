@@ -59,9 +59,9 @@ void save(const char* file, q7_t* out, size_t sz)
 
 uint32_t network(q7_t* input)
 {
-	arm_convolve_HWC_q7_basic(input, CONV1_IM_DIM, CONV1_IM_CH, conv1_w, CONV1_OUT_CH, CONV1_KER_DIM, CONV1_PADDING,
+	arm_convolve_HWC_q7_RGB(input, CONV1_IM_DIM, CONV1_IM_CH, conv1_w, CONV1_OUT_CH, CONV1_KER_DIM, CONV1_PADDING,
 						  CONV1_STRIDE, conv1_b, CONV1_BIAS_LSHIFT, CONV1_OUT_RSHIFT, conv1_out, CONV1_OUT_DIM,
-						  (q15_t *) conv_buffer, NULL);
+						  (q15_t *) conv_buffer, fc_buffer);
 	save("logs/conv1_out.raw", conv1_out, sizeof(conv1_out));
 
     // first relu

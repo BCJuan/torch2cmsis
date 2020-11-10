@@ -42,12 +42,12 @@ def train_cifar(config):
         "parameters.h",
         8
     )
-    cmsis_converter.prepare_quantization(dataloaders['val'])
+    cmsis_converter.prepare_quantization(dataloaders['train'])
     cmsis_converter.convert_model_cmsis()
     input, label, pred = converter.inference(cnn, dataloaders['val'])
     input.to('cpu')
     print(label, pred)
     cmsis_converter.register_logging(input)
-    
+    print("dasdasdad")
 if __name__ == "__main__":
     train_cifar(CONFIG)

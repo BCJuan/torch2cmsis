@@ -75,9 +75,11 @@ class CMSISConverter:
             weight=quantization.MinMaxObserver.with_args(
                 dtype=torch.qint8,
                 qscheme=torch.per_tensor_symmetric))
-
-        quantization.prepare(self.model, inplace=True, prehook=quantization.MinMaxObserver)
         register_hooks(self.model)
+        quantization.prepare(self.model, inplace=True, prehook=quantization.MinMaxObserver.with_args(
+                dtype=torch.qint8,
+                qscheme=torch.per_tensor_symmetric))
+        
         for input, _ in loader:
             _ = self.model(input)
 
@@ -136,17 +138,17 @@ class CMSISConverter:
         for module in self.model.modules():
             if isinstance(module, nn.Conv2d):
                 self.param_prefix_name = "CONV" + str(count_conv)
-                self.logging[self.param_prefix_name + "_OUTPUT"] = self.quantize_tensor(
+                self.logging[self.param_prefix_name + "_OUT"] = self.quantize_tensor(
                     module.output).numpy()
                 count_conv += 1
             elif isinstance(module, nn.Linear):
                 self.param_prefix_name = "IP" + str(count_linear)
-                self.logging[self.param_prefix_name + "_OUTPUT"] = self.quantize_tensor(
+                self.logging[self.param_prefix_name + "_OUT"] = self.quantize_tensor(
                     module.output).numpy()
                 count_linear += 1
             elif isinstance(module, nn.MaxPool2d):
                 self.param_prefix_name = "POOL" + str(count_pool)
-                self.logging[self.param_prefix_name + "_OUTPUT"] = self.quantize_tensor(
+                self.logging[self.param_prefix_name + "_OUT"] = self.quantize_tensor(
                     module.output).numpy()
                 count_pool += 1
 
@@ -351,6 +353,6 @@ def inference(model, loader):
 
 
 def compute_fractional_bits(min_value, max_value):
-    return int(torch.torch.ceil(
-        torch.log2(torch.max(torch.abs(max_value),
-                                torch.abs(min_value)))).item())
+        return int(torch.ceil(
+            torch.log2(torch.max(torch.abs(max_value),
+                                 torch.abs(min_value)))).item())
