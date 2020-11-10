@@ -59,7 +59,7 @@ void save(const char* file, q7_t* out, size_t sz)
 
 uint32_t network(q7_t* input)
 {
-	arm_convolve_HWC_q7_RGB(input, CONV1_IM_DIM, CONV1_IM_CH, conv1_w, CONV1_OUT_CH, CONV1_KER_DIM, CONV1_PADDING,
+	arm_convolve_HWC_q7_basic(input, CONV1_IM_DIM, CONV1_IM_CH, conv1_w, CONV1_OUT_CH, CONV1_KER_DIM, CONV1_PADDING,
 						  CONV1_STRIDE, conv1_b, CONV1_BIAS_LSHIFT, CONV1_OUT_RSHIFT, conv1_out, CONV1_OUT_DIM,
 						  (q15_t *) conv_buffer, fc_buffer);
 	save("logs/conv1_out.raw", conv1_out, sizeof(conv1_out));
@@ -80,7 +80,7 @@ uint32_t network(q7_t* input)
     arm_convolve_HWC_q7_basic(conv2_out, CONV3_IM_DIM, CONV3_IM_CH, conv3_w, CONV3_OUT_CH, CONV3_KER_DIM,
 						  CONV3_PADDING, CONV3_STRIDE, conv3_b, CONV3_BIAS_LSHIFT, CONV3_OUT_RSHIFT, conv3_out,
 						  CONV3_OUT_DIM, (q15_t *) conv_buffer, NULL);
-	save("logs/conv2_out.raw", conv3_out, sizeof(conv3_out));
+	save("logs/conv3_out.raw", conv3_out, sizeof(conv3_out));
 
     // second relu
 	arm_relu_q7(conv3_out, CONV3_OUT_DIM * CONV3_OUT_DIM * CONV3_OUT_CH);

@@ -1,7 +1,8 @@
 import os
 import subprocess
 import sys
-
+from tqdm import tqdm
+from subprocess import call
 import numpy as np
 import torch
 from torch import nn as nn
@@ -156,12 +157,18 @@ class CMSISConverter:
 
     def convert_module(self, module):
         # call compute output bias shifts
+        # act_bits = self.weight_bits - 1 - compute_fractional_bits(
+        #     module.activation_post_process.min_val,
+        #     module.activation_post_process.max_val)
+        # inp_bits = self.weight_bits - 1 - compute_fractional_bits(
+        #     module.activation_pre_process.min_val,
+        #     module.activation_pre_process.max_val)
         act_bits = self.weight_bits - 1 - compute_fractional_bits(
-            module.activation_post_process.min_val,
-            module.activation_post_process.max_val)
+            module.output_min_val,
+            module.output_max_val)
         inp_bits = self.weight_bits - 1 - compute_fractional_bits(
-            module.activation_pre_process.min_val,
-            module.activation_pre_process.max_val)
+            module.input_min_val,
+            module.input_max_val)
 
         # suposes that module has two named parameters: weight and bias
         self.compute_output_bias_shifts(module.weight,
@@ -318,10 +325,12 @@ class CMSISConverter:
     def evaluate_cmsis(self, exec_path, loader):
         correct = 0
         total = 0
-        for input_batch, label_batch in loader:
+        for input_batch, label_batch in tqdm(loader, total=len(loader)):
             for input, label in zip(input_batch, label_batch):
-                self.quantize_input(input)
-                call(os.path.join("./", exec_path), cwd=self.root)
+                qtensor = self.quantize_tensor(input)
+                qtensor.numpy().astype(np.int8).tofile(
+                    os.path.join(self.io_folder, 'input.raw'))
+                call(exec_path, cwd=self.root)
                 #TODO: this implies that the executable produces this file
                 out = np.fromfile(os.path.join(self.io_folder, "y_out.raw"), dtype=np.int8)
                 pred = np.argmax(out)
@@ -334,11 +343,23 @@ def hook_save_params(module, input, output):
     setattr(module, "input_shape", input[0].shape)
     setattr(module, "output_shape", output[0].shape)
     setattr(module, "output", output[0])
-
+    if module.output_max_val < torch.max(output):
+        module.output_max_val = torch.max(output)
+    if module.output_min_val > torch.min(output):
+        module.output_min_val = torch.min(output)
+    if module.input_max_val < torch.max(input[0]):
+        module.input_max_val = torch.max(input[0])
+    if module.input_min_val > torch.min(input[0]):
+        module.input_min_val = torch.min(input[0])
+    
 
 def register_hooks(model):
     for module in model.modules():
         if isinstance(module, (nn.Conv2d, nn.Linear, nn.MaxPool2d)):
+            module.register_buffer("input_min_val", torch.tensor(float('inf')))
+            module.register_buffer("input_max_val", torch.tensor(float('-inf')))
+            module.register_buffer("output_max_val", torch.tensor(float('-inf')))
+            module.register_buffer("output_min_val", torch.tensor(float('inf')))
             module.register_forward_hook(hook_save_params)
 
 

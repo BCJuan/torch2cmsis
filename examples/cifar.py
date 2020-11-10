@@ -2,7 +2,7 @@ from typing import Dict
 from os import path
 from tqdm import tqdm
 import copy
-from torchvision.datasets import CIFAR10
+from torchvision.datasets import CIFAR10, MNIST
 from torchvision.transforms import Compose, ToTensor, Normalize
 from torch.utils.data import TensorDataset
 from torch import nn
@@ -14,6 +14,9 @@ def transform_cifar10():
     return Compose(
         [ToTensor(), Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))]
     )
+
+def transform_mnist():
+    return Compose([ToTensor()])
 
 
 def sample_from_class(data_set, k):
@@ -72,6 +75,22 @@ def load_cifar():
     return [train_set, val_set, test_set]
 
 
+def load_mnist():
+    train_set = MNIST(
+        root="./data/data_mnist/",
+        train=True,
+        transform=transform_mnist(),
+        download=True
+        )
+    val_set, tr_set = sample_from_class(train_set, 500)
+    test_set = MNIST(
+        root="./data/data_mnist/",
+        train=False,
+        transform=transform_mnist(),
+        download=True
+        )
+    return [train_set, val_set, test_set]
+
 class SampleCNN(nn.Module):
 
     def __init__(self, shape=(3, 32, 32), batch_size=4):
@@ -81,7 +100,7 @@ class SampleCNN(nn.Module):
         
         self.conv_block1 = nn.Sequential(
             nn.Conv2d(
-                in_channels=3,
+                in_channels=shape[0],
                 out_channels=16,
                 kernel_size=5),
             nn.ReLU())
