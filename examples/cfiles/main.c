@@ -80,7 +80,7 @@ uint32_t network(q7_t* input)
 
     // softmax
     arm_softmax_q7(fc1_out, IP1_OUT, y_out);
-	save("weights/y_out.raw", y_out, sizeof(y_out));
+	save("logs/y_out.raw", y_out, sizeof(y_out));
 
 	uint32_t index[1];
 	q7_t result[1];
@@ -95,7 +95,7 @@ uint32_t network(q7_t* input)
 int main(int argc, char** argv)
 {
 	q7_t *input;
-    input = load("weights/input.raw");
+    input = load("logs/input.raw");
     uint32_t index;
     index = network(input);
 	return 0;

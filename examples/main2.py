@@ -37,13 +37,13 @@ def train_cifar(config):
     cnn.eval()
     
     print(accuracy_test)
-    cm_converter = CMSISConverter(cnn, "weights.h", "parameters.h", "inputs.h", "logging.h")
+    cm_converter = CMSISConverter("cfiles", cnn, "weights.h", "parameters.h")
     input, label, pred = inference(cnn, dataloaders["train"])
     input.to('cpu')
     print(label, pred)
     cm_converter.quantize_input(input[0])
-    cm_converter.generate_intermediate_values(input, cnn)
-    cm_converter.convert_model_cmsis(cnn)
+    cm_converter.generate_intermediate_values(input)
+    cm_converter.convert_model_cmsis()
     cm_converter.evaluate_cmsis("main", dataloaders['test'])
 
 if __name__ == "__main__":
