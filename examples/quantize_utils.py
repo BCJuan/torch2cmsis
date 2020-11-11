@@ -13,7 +13,7 @@ from subprocess import call
 class CMSISConverter:
 
     def __init__(self, root, model, weight_file_name, parameter_file_name,
-                 weight_bits=8):
+                 weight_bits=8, compilation=None):
         
         #TODO: defined by user should be
         self.root = root
@@ -30,6 +30,7 @@ class CMSISConverter:
         weight_file = open(self.weight_file_name, "w")
         weight_file.close()
 
+        self.compilation = compilation
         # define storage for maximum buffers in CMSIS
         self.max_col_buffer = 0
         self.max_fc_buffer = 0
@@ -64,9 +65,10 @@ class CMSISConverter:
         q_frac = self.compute_fractional_bits_tensor(weight)
         return torch.ceil(weight*(2**q_frac)).type(torch.int8)
 
-    def generate_intermediate_values(self, input):
+    def generate_intermediate_values(self, loader):
         register_hooks(self.model)
-        _ = self.model(input)
+        for sample, _ in loader:
+            _ = self.model(sample)
 
     def convert_model_cmsis(self):
         count_conv = 1
@@ -92,11 +94,12 @@ class CMSISConverter:
                 count_pool += 1
 
         self.write_shifts_n_params()
-        self.write_logging()
 
     def convert_module(self, module):
-        act_bits = self.compute_fractional_bits_tensor(module.output)
-        inp_bits = self.compute_fractional_bits_tensor(module.input)
+        act_bits = self.weight_bits - 1 - compute_fractional_bits(
+            module.output_min_val, module.output_max_val)
+        inp_bits = self.weight_bits - 1 - compute_fractional_bits(
+            module.input_min_val, module.input_max_val)
         # suposes that module has two named parameters: weight and bias
         self.compute_output_bias_shifts(module.weight,
                                         module.bias, act_bits, inp_bits)
@@ -168,8 +171,6 @@ class CMSISConverter:
         self.params[self.param_prefix_name + "_IM_DIM"] = module.input_shape[-1]
         self.params[self.param_prefix_name + "_OUT_DIM"] = module.output_shape[-1]
 
-        self.logging[self.param_prefix_name + "_OUT"] = self.quantize_tensor(module.output).numpy()
-
         col_buffer = 2*module.in_channels*kernel*kernel
         if self.max_col_buffer < col_buffer:
             self.max_col_buffer = col_buffer
@@ -198,8 +199,6 @@ class CMSISConverter:
         
         self.params[self.param_prefix_name + "_IM_DIM"] = module.input_shape[-1]
         self.params[self.param_prefix_name + "_OUT_DIM"] = module.output_shape[-1]
-
-        self.logging[self.param_prefix_name + "_OUT"] = self.quantize_tensor(module.output).numpy()
         
     def save_params_linear(self, module):
         self.params[self.param_prefix_name + "_IM_CH"] = module.in_features
@@ -210,8 +209,6 @@ class CMSISConverter:
         self.params[self.param_prefix_name + "_DIM"] = torch.prod(
             torch.tensor(
                 module.input_shape[-1:])).item()
-
-        self.logging[self.param_prefix_name + "_OUT"] = self.quantize_tensor(module.output).numpy()
 
         if self.max_fc_buffer < self.params[self.param_prefix_name + "_DIM"]:
             self.max_fc_buffer = self.params[self.param_prefix_name + "_DIM"]
@@ -237,19 +234,58 @@ class CMSISConverter:
             w_file.write(str(np.prod(weight.shape)))
             w_file.write("\n")
 
+    def register_logging(self):
+        count_conv = 1
+        count_linear = 1
+        count_pool = 1
+
+        for module in self.model.modules():
+            if isinstance(module, nn.Conv2d):
+                self.param_prefix_name = "CONV" + str(count_conv)
+                self.logging[self.param_prefix_name + "_OUT"] = \
+                    self.quantize_tensor(module.output).numpy()
+                count_conv += 1
+            if isinstance(module, nn.Linear):
+                self.param_prefix_name = "FC" + str(count_linear)
+                self.logging[self.param_prefix_name + "_OUT"] = \
+                    self.quantize_tensor(module.output).numpy()
+                count_linear += 1
+            if isinstance(module, nn.MaxPool2d):
+                self.param_prefix_name = "POOL" + str(count_pool)
+                self.logging[self.param_prefix_name + "_OUT"] = \
+                    self.quantize_tensor(module.output).numpy()
+                count_pool += 1
+
+        self.write_logging()
+
+    def compile(self):
+        call(self.compilation, cwd=self.root, shell=True)
+
+    def execute(self, exec_path):
+        call(os.path.join("./", exec_path), cwd=self.root)
+        #TODO: this implies that the executable produces this file
+        return np.fromfile(os.path.join(self.io_folder, "y_out.raw"), dtype=np.int8)
+
     def evaluate_cmsis(self, exec_path, loader):
         correct = 0
         total = 0
+        self.compile()
         for input_batch, label_batch in tqdm(loader, total=len(loader)):
             for input, label in zip(input_batch, label_batch):
                 self.quantize_input(input)
-                call(os.path.join("./", exec_path), cwd=self.root)
-                #TODO: this implies that the executable produces this file
-                out = np.fromfile(os.path.join(self.io_folder, "y_out.raw"), dtype=np.int8)
+                out = self.execute(exec_path)
                 pred = np.argmax(out)
                 correct += (pred == label.item())
                 total += 1
         print("Test accuracy for CMSIS model {}".format(correct/total))
+
+    def sample_inference_checker(self, exec_path, input):
+        self.compile()
+        self.quantize_input(input[0])
+        out = self.execute(exec_path)
+        out_torch = self.model(input)[0]
+        print(out, out_torch)
+        self.register_logging()
 
 
 def hook_save_params(module, input, output):
@@ -257,23 +293,23 @@ def hook_save_params(module, input, output):
     setattr(module, "output_shape", output[0].shape)
     setattr(module, "input", input[0][0])
     setattr(module, "output", output[0])
-
+    if module.output_max_val < torch.max(output):
+        module.output_max_val = torch.max(output)
+    if module.output_min_val > torch.min(output):
+        module.output_min_val = torch.min(output)
+    if module.input_max_val < torch.max(input[0]):
+        module.input_max_val = torch.max(input[0])
+    if module.input_min_val > torch.min(input[0]):
+        module.input_min_val = torch.min(input[0])
 
 def register_hooks(model):
     for module in model.modules():
         if isinstance(module, (nn.Conv2d, nn.Linear, nn.MaxPool2d)):
+            module.register_buffer("input_min_val", torch.tensor(float('inf')))
+            module.register_buffer("input_max_val", torch.tensor(float('-inf')))
+            module.register_buffer("output_max_val", torch.tensor(float('-inf')))
+            module.register_buffer("output_min_val", torch.tensor(float('inf')))
             module.register_forward_hook(hook_save_params)
-
-
-def inference(model, loader):
-    model.eval()
-
-    with torch.no_grad():
-        iter_loader = iter(loader)
-        input, label = next(iter_loader)
-        output = model(input)
-    return input, label[0].item(), torch.argmax(output[0]).item()
-
 
 def compute_fractional_bits(min_value, max_value):
     return int(torch.ceil(
