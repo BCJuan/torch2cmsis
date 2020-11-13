@@ -177,7 +177,9 @@ class CMSISConverter:
             self.params["MAX_CONV_BUFFER_SIZE"] = self.max_col_buffer
         
     def save_params_pool(self, module):
-
+        self.params[self.param_prefix_name + "_OUT_CH"] = module.output_shape[0]
+        self.params[self.param_prefix_name + "_IM_CH"] = module.input_shape[1]
+        
         # kernel has to be squared
         if isinstance(module.kernel_size, tuple):
             kernel = module.kernel_size[0]

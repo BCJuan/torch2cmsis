@@ -15,7 +15,9 @@ using only convolutions and fully connected layers and
 */
 
 q7_t conv1_out[CONV1_OUT_CH*CONV1_OUT_DIM*CONV1_OUT_DIM];
-q7_t conv2_out[CONV2_OUT_CH*CONV2_OUT_DIM*CONV1_OUT_DIM];
+q7_t pool1_out[POOL1_OUT_CH*POOL1_OUT_DIM*POOL1_OUT_DIM];
+q7_t conv2_out[CONV2_OUT_CH*CONV2_OUT_DIM*CONV2_OUT_DIM];
+q7_t pool2_out[POOL2_OUT_CH*POOL2_OUT_DIM*POOL2_OUT_DIM];
 q7_t fc1_out[FC1_OUT];
 q7_t y_out[FC1_OUT];
 
@@ -28,8 +30,6 @@ q7_t fc1_b[FC1_BIAS_SHAPE] = FC1_BIAS;
 
 q7_t conv_buffer[MAX_CONV_BUFFER_SIZE];
 q7_t fc_buffer[MAX_FC_BUFFER];
-// q7_t conv_buffer[3000];
-// q7_t fc_buffer[10000];
 
 q7_t* load(const char* file)
 {
@@ -59,21 +59,20 @@ uint32_t network(q7_t* input)
 						  CONV1_STRIDE, conv1_b, CONV1_BIAS_LSHIFT, CONV1_OUT_RSHIFT, conv1_out, CONV1_OUT_DIM,
 						  (q15_t *) conv_buffer, fc_buffer);
 	save("logs/conv1_out.raw", conv1_out, sizeof(conv1_out));
+    arm_maxpool_q7_HWC(conv1_out, POOL1_IM_DIM, POOL1_IM_CH, POOL1_KER_DIM, POOL1_PADDING, POOL1_STRIDE, POOL1_OUT_DIM, NULL, pool1_out);
+	save("logs/pool1_put.raw", pool1_out, sizeof(pool1_out));
+    arm_relu_q7(pool1_out, POOL1_OUT_DIM * POOL1_OUT_DIM * POOL1_OUT_CH);
 
-    // first relu
-    arm_relu_q7(conv1_out, CONV1_OUT_DIM * CONV1_OUT_DIM * CONV1_OUT_CH);
-
-    // second conv
-    arm_convolve_HWC_q7_basic(conv1_out, CONV2_IM_DIM, CONV2_IM_CH, conv2_w, CONV2_OUT_CH, CONV2_KER_DIM,
+    arm_convolve_HWC_q7_basic(pool1_out, CONV2_IM_DIM, CONV2_IM_CH, conv2_w, CONV2_OUT_CH, CONV2_KER_DIM,
 						  CONV2_PADDING, CONV2_STRIDE, conv2_b, CONV2_BIAS_LSHIFT, CONV2_OUT_RSHIFT, conv2_out,
 						  CONV2_OUT_DIM, (q15_t *) conv_buffer, NULL);
 	save("logs/conv2_out.raw", conv2_out, sizeof(conv2_out));
-
-    // second relu
-	arm_relu_q7(conv2_out, CONV2_OUT_DIM * CONV2_OUT_DIM * CONV2_OUT_CH);
+    arm_maxpool_q7_HWC(conv2_out, POOL2_IM_DIM, POOL2_IM_CH, POOL2_KER_DIM, POOL2_PADDING, POOL2_STRIDE, POOL2_OUT_DIM, NULL, pool2_out);
+	save("logs/pool2_put.raw", pool2_out, sizeof(pool2_out));
+    arm_relu_q7(pool2_out, POOL2_OUT_DIM * POOL2_OUT_DIM * POOL2_OUT_CH);
 
     // first fc
-	arm_fully_connected_q7_opt(conv2_out, fc1_w, FC1_DIM, FC1_OUT, FC1_BIAS_LSHIFT, FC1_OUT_RSHIFT, fc1_b,
+	arm_fully_connected_q7_opt(pool2_out, fc1_w, FC1_DIM, FC1_OUT, FC1_BIAS_LSHIFT, FC1_OUT_RSHIFT, fc1_b,
 						  fc1_out, (q15_t *) fc_buffer);
 	save("logs/fc1_out.raw", fc1_out, sizeof(fc1_out));
 

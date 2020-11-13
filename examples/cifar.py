@@ -102,16 +102,17 @@ class SampleCNN(nn.Module):
             nn.Conv2d(
                 in_channels=shape[0],
                 out_channels=8,
-                kernel_size=7),
+                kernel_size=5),
+            nn.MaxPool2d(2),
             nn.ReLU())
 
-        conv2 = nn.Conv2d(
-            in_channels=8,
-            out_channels=4,
-            kernel_size=7)
-
-        relu2 = nn.ReLU()
-        self.conv_block2 = nn.Sequential(*[conv2, relu2])
+        self.conv_block2 = nn.Sequential(
+            nn.Conv2d(
+                in_channels=8,
+                out_channels=4,
+                kernel_size=3),
+            nn.MaxPool2d(2),
+            nn.ReLU())
 
         self.flatten = nn.Flatten()
 
