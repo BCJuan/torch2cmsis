@@ -6,7 +6,7 @@ With each change a value for one or two tests is included to check the functioni
 
 MNIST
 1. Architecture -------------> add max pool --------------------> 0.9804/0.9792, 0.9778/0.9761
-2. Architecture -------------> add + fc ------------------------>
+2. Architecture -------------> add + fc ------------------------> 0.9783/0.9754, 0.981/0.9781
 3. Statistics for quant based on quantiles --------------------->
 
 ### FIRST RELEASE

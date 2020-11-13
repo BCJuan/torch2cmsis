@@ -115,9 +115,13 @@ class SampleCNN(nn.Module):
             nn.ReLU())
 
         self.flatten = nn.Flatten()
-
         self.interface_shape = self.get_shape()
-        self.linear = nn.Linear(in_features=self.interface_shape.numel(), out_features=10)
+
+        self.linear_block1 = nn.Sequential(
+            nn.Linear(in_features=self.interface_shape.numel(), out_features=32),
+            nn.ReLU()
+        )
+        self.linear = nn.Linear(in_features=32, out_features=10)
 
     def get_shape(self):
         sample = torch.randn(size=(self.batch_size, *self.input_shape))
@@ -129,6 +133,7 @@ class SampleCNN(nn.Module):
         out = self.conv_block1(x)
         out = self.conv_block2(out)
         out = self.flatten(out)
+        out = self.linear_block1(out)
         return self.linear(out)
 
 

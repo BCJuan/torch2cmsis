@@ -138,11 +138,14 @@ class CMSISConverter:
                     qweight.permute(0, 2, 3, 1).numpy().astype(np.int8))
             elif "FC" in name:
                 original_shape = qweight.shape
-                trans_weight = qweight.reshape(
-                    original_shape[0], 
-                    *tuple(torch.tensor(self.conv_linear_interface_shape).numpy().tolist())).permute(
-                        0, 2, 3, 1).reshape(original_shape)
-                weight = convert_to_x4_q7_weights(trans_weight.reshape(original_shape[0], original_shape[1], 1, 1).numpy().astype(np.int8))
+                if "FC1" == name.split("_")[0]:
+                    trans_weight = qweight.reshape(
+                        original_shape[0], 
+                        *tuple(torch.tensor(self.conv_linear_interface_shape).numpy().tolist())).permute(
+                            0, 2, 3, 1).reshape(original_shape)
+                    weight = convert_to_x4_q7_weights(trans_weight.reshape(original_shape[0], original_shape[1], 1, 1).numpy().astype(np.int8))
+                else:
+                    weight = convert_to_x4_q7_weights(qweight.reshape(original_shape[0], original_shape[1], 1, 1).numpy().astype(np.int8))
                 self.write_weights(name, weight)
                         
     def save_params_conv(self, module):
@@ -203,11 +206,7 @@ class CMSISConverter:
         self.params[self.param_prefix_name + "_OUT_DIM"] = module.output_shape[-1]
         
     def save_params_linear(self, module):
-        self.params[self.param_prefix_name + "_IM_CH"] = module.in_features
         self.params[self.param_prefix_name + "_OUT"] = module.out_features
-        # TODO: the image shape befor efully connected is only known because
-        # there is a function the model that gets it. Should be independent of tht function
-        self.params[self.param_prefix_name + "_IM_DIM"] = self.conv_linear_interface_shape[-1]
         self.params[self.param_prefix_name + "_DIM"] = torch.prod(
             torch.tensor(
                 module.input_shape[-1:])).item()
