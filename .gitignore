@@ -8,3 +8,6 @@ examples/mnist/*.pth
 *.pyc
 examples/mnist/cfiles/logs/
 examples/mnist/quantize_utils.py
+
+dist/
+*egg-info/
