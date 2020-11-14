@@ -1,7 +1,6 @@
 from torch.utils.data import DataLoader
-from cifar import load_cifar, SampleCNN, SimpleTrainer, load_mnist
-from torch2cmsis import converter
-from quantize_utils import CMSISConverter
+from mnist import SampleCNN, SimpleTrainer, load_mnist
+from torch2cmsis.converter import CMSISConverter
 
 CONFIG = {
     "batch_size": 64,
@@ -12,12 +11,12 @@ CONFIG = {
     "name": "sample_model",
     "shape": (1, 28, 28),
     "dataset": load_mnist,
-    "compilation": 'gcc -g -I../../CMSIS_5/CMSIS/Core/Include \
-            -I../../CMSIS_5/CMSIS/DSP/Include \
-            -I../../CMSIS_5/CMSIS/NN/Include \
+    "compilation": 'gcc -g -I../../../CMSIS_5/CMSIS/Core/Include \
+            -I../../../CMSIS_5/CMSIS/DSP/Include \
+            -I../../../CMSIS_5/CMSIS/NN/Include \
             -D__ARM_ARCH_8M_BASE__ \
-            ../../CMSIS_5/CMSIS/NN/Source/*/*.c \
-            ../../CMSIS_5/CMSIS/DSP/Source/StatisticsFunctions/arm_max_q7.c \
+            ../../../CMSIS_5/CMSIS/NN/Source/*/*.c \
+            ../../../CMSIS_5/CMSIS/DSP/Source/StatisticsFunctions/arm_max_q7.c \
             main.c -o main',
     "exec_path": "main"
 }   
@@ -44,7 +43,7 @@ def train_cifar(config):
     cnn.to('cpu')
     cnn.eval()
     
-    print(accuracy_test)
+    print("Accuracy for test set with PyTorch ", accuracy_test)
     cm_converter = CMSISConverter("cfiles", cnn, "weights.h", "parameters.h",
                                   8, config.get("compilation"))
     cm_converter.generate_intermediate_values(dataloaders['val'])

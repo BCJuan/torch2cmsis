@@ -9,12 +9,6 @@ from torch import nn
 import torch
 
 
-def transform_cifar10():
-    "transforms for the cifar 10"
-    return Compose(
-        [ToTensor(), Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))]
-    )
-
 def transform_mnist():
     return Compose([ToTensor(), Normalize((0.1307,), (0.3081,))])
 
@@ -58,23 +52,6 @@ def sample_from_class(data_set, k):
     )
 
 
-def load_cifar():
-    train_set = CIFAR10(
-        root="./data/data_cifar10/",
-        train=True,
-        transform=transform_cifar10(),
-        download=True
-        )
-    val_set, tr_set = sample_from_class(train_set, 500)
-    test_set = CIFAR10(
-        root="./data/data_cifar10/",
-        train=False,
-        transform=transform_cifar10(),
-        download=True
-        )
-    return [train_set, val_set, test_set]
-
-
 def load_mnist():
     train_set = MNIST(
         root="./data/data_mnist/",
@@ -90,6 +67,7 @@ def load_mnist():
         download=True
         )
     return [train_set, val_set, test_set]
+
 
 class SampleCNN(nn.Module):
 

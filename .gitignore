@@ -2,7 +2,9 @@
 # other files
 links.txt
 .vscode/
-examples/data/
-examples/*.pth
+examples/mnist/data/
+examples/cifar
+examples/mnist/*.pth
 *.pyc
-examples/cfiles/logs/
+examples/mnist/cfiles/logs/
+examples/mnist/quantize_utils.py
