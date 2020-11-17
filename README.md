@@ -27,6 +27,8 @@ Just `pip install torch2cmsis`
 
 In the folder examples you are going to find different explained examples on how to use `torch2cmsis` at different levels of configuration.
 
+Clone the repo recursively to include CMSIS: `git clone --recursive https://github.com/BCJuan/torch2cmsis.git`
+
 + MNIST Example:
     + Shows how to obtain quantized weights and parameters as header files ready to use for CMSIS models
     + How to test the CMSIS model 

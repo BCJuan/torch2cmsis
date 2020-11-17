@@ -1,12 +1,13 @@
-from typing import Dict
-from os import path
-from tqdm import tqdm
 import copy
-from torchvision.datasets import CIFAR10, MNIST
-from torchvision.transforms import Compose, ToTensor, Normalize
-from torch.utils.data import TensorDataset
-from torch import nn
+from os import path
+from typing import Dict
+
 import torch
+from torch import nn
+from torch.utils.data import TensorDataset
+from torchvision.datasets import CIFAR10, MNIST
+from torchvision.transforms import Compose, Normalize, ToTensor
+from tqdm import tqdm
 
 
 def transform_mnist():
@@ -57,47 +58,44 @@ def load_mnist():
         root="./data/data_mnist/",
         train=True,
         transform=transform_mnist(),
-        download=True
-        )
+        download=True,
+    )
     val_set, tr_set = sample_from_class(train_set, 500)
     test_set = MNIST(
         root="./data/data_mnist/",
         train=False,
         transform=transform_mnist(),
-        download=True
-        )
+        download=True,
+    )
     return [train_set, val_set, test_set]
 
 
 class SampleCNN(nn.Module):
-
     def __init__(self, shape=(3, 32, 32), batch_size=4):
         super().__init__()
         self.input_shape = shape
         self.batch_size = batch_size
-        
+
         self.conv_block1 = nn.Sequential(
-            nn.Conv2d(
-                in_channels=shape[0],
-                out_channels=8,
-                kernel_size=5),
+            nn.Conv2d(in_channels=shape[0], out_channels=8, kernel_size=5),
             nn.MaxPool2d(2),
-            nn.ReLU())
+            nn.ReLU(),
+        )
 
         self.conv_block2 = nn.Sequential(
-            nn.Conv2d(
-                in_channels=8,
-                out_channels=4,
-                kernel_size=3),
+            nn.Conv2d(in_channels=8, out_channels=4, kernel_size=3),
             nn.MaxPool2d(2),
-            nn.ReLU())
+            nn.ReLU(),
+        )
 
         self.flatten = nn.Flatten()
         self.interface_shape = self.get_shape()
 
         self.linear_block1 = nn.Sequential(
-            nn.Linear(in_features=self.interface_shape.numel(), out_features=32),
-            nn.ReLU()
+            nn.Linear(
+                in_features=self.interface_shape.numel(), out_features=32
+            ),
+            nn.ReLU(),
         )
         self.linear = nn.Linear(in_features=32, out_features=10)
 
@@ -106,7 +104,7 @@ class SampleCNN(nn.Module):
         out = self.conv_block1(sample)
         out = self.conv_block2(out)
         return out.shape[1:]
-    
+
     def forward(self, x):
         out = self.conv_block1(x)
         out = self.conv_block2(out)
@@ -116,34 +114,31 @@ class SampleCNN(nn.Module):
 
 
 class SimpleTrainer:
-
     def __init__(
-        self,
-        datasets=None,
-        dataloaders=None,
-        models_path=".",
-        cuda="cuda:0",
+        self, datasets=None, dataloaders=None, models_path=".", cuda="cuda:0",
     ):
         super().__init__()
         self.datasets = datasets
         # TODO: choose GPU with less memory
-        self.devicy = torch.device(cuda if torch.cuda.is_available() else "cpu")
+        self.devicy = torch.device(
+            cuda if torch.cuda.is_available() else "cpu"
+        )
         self.datasizes = {
-            i: len(sett) for i, sett in zip(["train", "val", "test"], self.datasets)
+            i: len(sett)
+            for i, sett in zip(["train", "val", "test"], self.datasets)
         }
         self.models_path = models_path
         self.dataloaders = dataloaders
         self.criterion = nn.CrossEntropyLoss()
 
     def train(
-        self,
-        net: nn.Module,
-        parameters: Dict[str, float],
-        name: str,
+        self, net: nn.Module, parameters: Dict[str, float], name: str,
     ) -> nn.Module:
 
         net.to(device=self.devicy)  # pyre-ignore [28]
-        optimizer = torch.optim.Adam(net.parameters(), lr=parameters.get("learning_rate"))
+        optimizer = torch.optim.Adam(
+            net.parameters(), lr=parameters.get("learning_rate")
+        )
         exp_lr_scheduler = torch.optim.lr_scheduler.StepLR(
             optimizer,
             step_size=parameters.get("learning_step"),
@@ -152,11 +147,7 @@ class SimpleTrainer:
 
         # Train Network
         net = self.train_loop(
-            net,
-            optimizer,
-            exp_lr_scheduler,
-            name,
-            parameters.get("epochs")
+            net, optimizer, exp_lr_scheduler, name, parameters.get("epochs")
         )
         return net
 
@@ -164,7 +155,7 @@ class SimpleTrainer:
         """
         Training loop
         """
-        best_loss = 10**8
+        best_loss = 10 ** 8
 
         for _ in tqdm(range(epochs)):
             for phase in ["train", "val"]:
@@ -180,7 +171,7 @@ class SimpleTrainer:
 
                     inputs = inputs.to(self.devicy)
                     labels = labels.to(self.devicy)
- 
+
                     optimizer.zero_grad()
 
                     with torch.set_grad_enabled(phase == "train"):
@@ -207,7 +198,9 @@ class SimpleTrainer:
                     best_model_wts = copy.deepcopy(model.state_dict())
 
         model.load_state_dict(best_model_wts)
-        torch.save(model.state_dict(), path.join(self.models_path, str(name) + ".pth"))
+        torch.save(
+            model.state_dict(), path.join(self.models_path, str(name) + ".pth")
+        )
         return model
 
     def evaluate(self, net: nn.Module) -> float:
