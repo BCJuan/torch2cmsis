@@ -2,12 +2,13 @@
 # other files
 links.txt
 .vscode/
-examples/mnist/data/
-examples/cifar
-examples/mnist/*.pth
+data/
+*.pth
 *.pyc
-examples/mnist/cfiles/logs/
+logs/
 examples/mnist/quantize_utils.py
+examples/cifar
 
 dist/
 *egg-info/
+__pycache__

@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from torch import nn as nn
 from tqdm import tqdm
-
+from torch import quantization
 from .fully_connected_opt_weight_generation import convert_to_x4_q7_weights
 
 
@@ -76,6 +76,16 @@ class CMSISConverter:
         return torch.ceil(weight * (2 ** q_frac)).type(torch.int8)
 
     def generate_intermediate_values(self, loader):
+        self.model.qconfig = quantization.QConfig(
+            activation=quantization.HistogramObserver.with_args(
+                dtype=torch.qint8,
+                qscheme=torch.per_tensor_affine),
+            weight=quantization.HistogramObserver.with_args(
+                dtype=torch.qint8,
+                qscheme=torch.per_tensor_affine))
+        self.model = quantization.prepare(self.model, prehook=quantization.HistogramObserver.with_args(
+                dtype=torch.qint8,
+                qscheme=torch.per_tensor_affine))
         register_hooks(self.model)
         for sample, _ in loader:
             _ = self.model(sample)
@@ -106,20 +116,10 @@ class CMSISConverter:
         self.write_shifts_n_params()
 
     def convert_module(self, module):
-        act_bits = (
-            self.weight_bits
-            - 1
-            - compute_fractional_bits(
-                module.output_min_val, module.output_max_val
-            )
-        )
-        inp_bits = (
-            self.weight_bits
-            - 1
-            - compute_fractional_bits(
-                module.input_min_val, module.input_max_val
-            )
-        )
+        act_bits = self.weight_bits - 1 - compute_fractional_bits(
+            module.activation_post_process.min_val, module.activation_post_process.max_val)
+        inp_bits = self.weight_bits - 1 - compute_fractional_bits(
+            module.activation_pre_process.min_val, module.activation_pre_process.max_val)
         # suposes that module has two named parameters: weight and bias
         self.compute_output_bias_shifts(
             module.weight, module.bias, act_bits, inp_bits
@@ -358,29 +358,10 @@ def hook_save_params(module, input, output):
     setattr(module, "output_shape", output[0].shape)
     setattr(module, "input", input[0][0])
     setattr(module, "output", output[0])
-    if module.output_max_val < torch.max(output):
-        module.output_max_val = torch.max(output)
-    if module.output_min_val > torch.min(output):
-        module.output_min_val = torch.min(output)
-    if module.input_max_val < torch.max(input[0]):
-        module.input_max_val = torch.max(input[0])
-    if module.input_min_val > torch.min(input[0]):
-        module.input_min_val = torch.min(input[0])
-
 
 def register_hooks(model):
     for module in model.modules():
         if isinstance(module, (nn.Conv2d, nn.Linear, nn.MaxPool2d)):
-            module.register_buffer("input_min_val", torch.tensor(float("inf")))
-            module.register_buffer(
-                "input_max_val", torch.tensor(float("-inf"))
-            )
-            module.register_buffer(
-                "output_max_val", torch.tensor(float("-inf"))
-            )
-            module.register_buffer(
-                "output_min_val", torch.tensor(float("inf"))
-            )
             module.register_forward_hook(hook_save_params)
 
 
