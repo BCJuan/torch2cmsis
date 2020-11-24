@@ -19,7 +19,7 @@ MNIST
 
 ## SECOND EXAMPLE
 
-1. CIFAR10 q15 ------------------------------------------------>
+1. CIFAR10----------------------------------------------->
 2. Checker of activations vs quant activations (graphic)------->
 3. Non square kernels ----------------------------------------->
 4. depthwise convolutions ------------------------------------->

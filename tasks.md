@@ -1,6 +1,6 @@
 # Tasks
 
-1. CIFAR-15 con q15
+1. CIFAR-10
 2. Configure pylint
 3. Configure tests
 4. COnfigure pip environemnt
