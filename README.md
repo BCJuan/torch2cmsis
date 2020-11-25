@@ -1,3 +1,6 @@
+**!!IMPORTANT BUG 1st RELEASE!!**
+The first release has a bug: does not permute input dimensions directly (CHW->HWC), so it has to be transposed before hand. The framework only works with grey images out of the box. Clone the current master branch of the repo to have an out of the box functionality for RGB images.
+
 # torch2cmsis
 
 Library for converting a neural network developed in Pytorch to CMSIS Legacy API. 

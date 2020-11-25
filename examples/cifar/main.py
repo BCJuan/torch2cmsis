@@ -1,17 +1,18 @@
 from torch.utils.data import DataLoader
 
-from mnist import SampleCNN, SimpleTrainer, load_mnist
+from cifar import SampleCNN, SimpleTrainer, load_cifar
 from torch2cmsis.converter import CMSISConverter
 
+
 CONFIG = {
-    "batch_size": 64,
-    "epochs": 5,
+    "batch_size": 8,
+    "epochs": 1,
     "learning_rate": 0.001,
     "learning_step": 5000,
     "learning_gamma": 0.99,
     "name": "sample_model",
-    "shape": (1, 28, 28),
-    "dataset": load_mnist,
+    "shape": (3, 32, 32),
+    "dataset": load_cifar,
     "compilation": "gcc -g -I../../../CMSIS_5/CMSIS/Core/Include \
             -I../../../CMSIS_5/CMSIS/DSP/Include \
             -I../../../CMSIS_5/CMSIS/NN/Include \
@@ -23,7 +24,7 @@ CONFIG = {
 }
 
 
-def train_mnist_convert(config):
+def train_cifar(config):
     datasets = config["dataset"]()
     dataloaders = {
         i: DataLoader(
@@ -55,4 +56,4 @@ def train_mnist_convert(config):
 
 
 if __name__ == "__main__":
-    train_mnist_convert(CONFIG)
+    train_cifar(CONFIG)

@@ -6,8 +6,8 @@ data/
 *.pth
 *.pyc
 logs/
-examples/mnist/quantize_utils.py
-examples/cifar
+quantize_utils.py
+
 
 dist/
 *egg-info/

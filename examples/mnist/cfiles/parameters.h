@@ -1,6 +1,6 @@
-#define CONV1_BIAS_LSHIFT 5
-#define CONV1_OUT_RSHIFT 10
-#define CONV1_Q 8
+#define CONV1_BIAS_LSHIFT 4
+#define CONV1_OUT_RSHIFT 9
+#define CONV1_Q 7
 #define CONV1_BIAS_Q 8
 #define CONV1_INPUT_Q 5
 #define CONV1_OUT_Q 3
@@ -16,10 +16,10 @@
 #define FC1_BIAS_Q 9
 #define FC1_INPUT_Q 2
 #define FC1_OUT_Q 1
-#define FC2_BIAS_LSHIFT 1
-#define FC2_OUT_RSHIFT 7
-#define FC2_Q 8
-#define FC2_BIAS_Q 8
+#define FC2_BIAS_LSHIFT -1
+#define FC2_OUT_RSHIFT 6
+#define FC2_Q 7
+#define FC2_BIAS_Q 9
 #define FC2_INPUT_Q 1
 #define FC2_OUT_Q 2
 #define CONV1_IM_CH 1

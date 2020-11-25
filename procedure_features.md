@@ -7,7 +7,6 @@ With each change a value for one or two tests is included to check the functioni
 MNIST
 1. Architecture -------------> add max pool --------------------> 0.9804/0.9792, 0.9778/0.9761
 2. Architecture -------------> add + fc ------------------------> 0.9783/0.9754, 0.981/0.9781
-3. Statistics for quant based on quantiles --------------------->
 
 ### FIRST RELEASE
 
@@ -19,10 +18,11 @@ MNIST
 
 ## SECOND EXAMPLE
 
-1. CIFAR10----------------------------------------------->
-2. Checker of activations vs quant activations (graphic)------->
-3. Non square kernels ----------------------------------------->
-4. depthwise convolutions ------------------------------------->
+1. Changed statistic collector from self made buffers and hooks to histogram observer----> 0.9809/0.9788 
+2. CIFAR10 ----------------------------------------------->
+3. Checker of activations vs quant activations (graphic)-------> 
+4. Non square kernels ----------------------------------------->
+5. depthwise convolutions ------------------------------------->
 
 ### SECOND RELEASE
 

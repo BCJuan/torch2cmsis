@@ -6,6 +6,7 @@ import torch
 from torch import nn as nn
 from tqdm import tqdm
 from torch import quantization
+import matplotlib.pyplot as plt 
 from .fully_connected_opt_weight_generation import convert_to_x4_q7_weights
 
 
@@ -61,7 +62,7 @@ class CMSISConverter:
 
     def quantize_input(self, input):
         self.input_frac_bits = self.compute_fractional_bits_tensor(input)
-        qtensor = self.quantize_tensor(input).numpy().astype(np.int8)
+        qtensor = self.quantize_tensor(input).permute(1, 2, 0).numpy().astype(np.int8)
         qtensor.tofile(os.path.join(self.io_folder, "input.raw"))
 
     def compute_fractional_bits_tensor(self, weight):
@@ -302,23 +303,16 @@ class CMSISConverter:
         for module in self.model.modules():
             if isinstance(module, nn.Conv2d):
                 self.param_prefix_name = "CONV" + str(count_conv)
-                self.logging[
-                    self.param_prefix_name + "_OUT"
-                ] = self.quantize_tensor(module.output).numpy()
                 count_conv += 1
             if isinstance(module, nn.Linear):
                 self.param_prefix_name = "FC" + str(count_linear)
-                self.logging[
-                    self.param_prefix_name + "_OUT"
-                ] = self.quantize_tensor(module.output).numpy()
                 count_linear += 1
             if isinstance(module, nn.MaxPool2d):
                 self.param_prefix_name = "POOL" + str(count_pool)
-                self.logging[
-                    self.param_prefix_name + "_OUT"
-                ] = self.quantize_tensor(module.output).numpy()
                 count_pool += 1
-
+            if isinstance(module, (nn.Conv2d, nn.MaxPool2d, nn.Linear)):
+                self.logging[self.param_prefix_name + "_OUT"] = \
+                    self.quantize_tensor(module.output).numpy()
         self.write_logging()
 
     def compile(self):
@@ -344,14 +338,39 @@ class CMSISConverter:
                 total += 1
         print("Test accuracy for CMSIS model {}".format(correct / total))
 
-    def sample_inference_checker(self, exec_path, input):
+    def sample_inference_checker(self, exec_path, input, draw=False):
         self.compile()
         self.quantize_input(input[0])
         out = self.execute(exec_path)
         out_torch = self.model(input)[0]
-        # print(out, out_torch)
         self.register_logging()
+        self.draw_model_comparison(draw)
 
+    def draw_model_comparison(self, draw=False):
+        count_conv = 1
+        count_linear = 1
+        count_pool = 1
+
+        for module in self.model.modules():
+            if isinstance(module, nn.Conv2d):
+                self.param_prefix_name = "CONV" + str(count_conv)
+                count_conv += 1
+            if isinstance(module, nn.Linear):
+                self.param_prefix_name = "FC" + str(count_linear)
+                count_linear += 1
+            if isinstance(module, nn.MaxPool2d):
+                self.param_prefix_name = "POOL" + str(count_pool)
+                count_pool += 1
+            if isinstance(module, (nn.Conv2d, nn.MaxPool2d, nn.Linear)):
+                if draw:
+                    draw_activation(
+                        os.path.join(
+                            self.io_folder,
+                            self.param_prefix_name.lower() + "_out_torch.raw"),
+                        os.path.join(
+                            self.io_folder,
+                            self.param_prefix_name.lower() + "_out.raw")
+                    )
 
 def hook_save_params(module, input, output):
     setattr(module, "input_shape", input[0].shape)
@@ -371,3 +390,12 @@ def compute_fractional_bits(min_value, max_value):
             torch.log2(torch.max(torch.abs(max_value), torch.abs(min_value)))
         ).item()
     )
+
+def draw_activation(torch_activation_name, cmsis_activation_name):
+    torch_activation = np.sort(np.fromfile(torch_activation_name, dtype=np.int8))
+    cmsis_activation = np.sort(np.fromfile(cmsis_activation_name, dtype=np.int8))
+    label = torch_activation_name.split("_")[0]
+    plt.plot(torch_activation, label="PyTorch " + label, c='k')
+    plt.plot(cmsis_activation, label="CMSIS-NN " + label, c='r')
+    plt.legend()
+    plt.show()
