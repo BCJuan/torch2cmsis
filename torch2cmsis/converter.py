@@ -9,6 +9,15 @@ from torch import quantization
 import matplotlib.pyplot as plt 
 from .fully_connected_opt_weight_generation import convert_to_x4_q7_weights
 
+# TODO:
+# + Change interface detection to named modules
+# + Change buffering from individual buffering to global buffering: one buffer (duplicated) for input/output and another for column buffer
+#   + The input/output buffer has to be the greatest of inputs output sizes 
+#   + The col buffer has to be the greatest of column transformations for conv, pool and fc
+#       + CONV: 2*ch_im_in*dim_kernel*dim_kernel
+#       + POOL: 2*dim_im_out*ch_im_in
+#       + FC: dim_vec
+
 
 class CMSISConverter:
     def __init__(
@@ -109,7 +118,7 @@ class CMSISConverter:
                 self.save_params_linear(module)
                 count_linear += 1
 
-            if isinstance(module, nn.MaxPool2d):
+            if isinstance(module, (nn.MaxPool2d, nn.AvgPool2d)):
                 self.param_prefix_name = "POOL" + str(count_pool)
                 self.save_params_pool(module)
                 count_pool += 1
@@ -307,10 +316,10 @@ class CMSISConverter:
             if isinstance(module, nn.Linear):
                 self.param_prefix_name = "FC" + str(count_linear)
                 count_linear += 1
-            if isinstance(module, nn.MaxPool2d):
+            if isinstance(module, (nn.MaxPool2d, nn.AvgPool2d)):
                 self.param_prefix_name = "POOL" + str(count_pool)
                 count_pool += 1
-            if isinstance(module, (nn.Conv2d, nn.MaxPool2d, nn.Linear)):
+            if isinstance(module, (nn.Conv2d, nn.MaxPool2d, nn.Linear, nn.AvgPool2d)):
                 self.logging[self.param_prefix_name + "_OUT"] = \
                     self.quantize_tensor(module.output).numpy()
         self.write_logging()
@@ -358,10 +367,10 @@ class CMSISConverter:
             if isinstance(module, nn.Linear):
                 self.param_prefix_name = "FC" + str(count_linear)
                 count_linear += 1
-            if isinstance(module, nn.MaxPool2d):
+            if isinstance(module, (nn.MaxPool2d, nn.AvgPool2d)):
                 self.param_prefix_name = "POOL" + str(count_pool)
                 count_pool += 1
-            if isinstance(module, (nn.Conv2d, nn.MaxPool2d, nn.Linear)):
+            if isinstance(module, (nn.Conv2d, nn.MaxPool2d, nn.Linear, nn.AvgPool2d)):
                 if draw:
                     draw_activation(
                         os.path.join(
@@ -380,7 +389,7 @@ def hook_save_params(module, input, output):
 
 def register_hooks(model):
     for module in model.modules():
-        if isinstance(module, (nn.Conv2d, nn.Linear, nn.MaxPool2d)):
+        if isinstance(module, (nn.Conv2d, nn.Linear, nn.MaxPool2d, nn.AvgPool2d)):
             module.register_forward_hook(hook_save_params)
 
 

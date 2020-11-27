@@ -79,30 +79,26 @@ class SampleCNN(nn.Module):
         self.batch_size = batch_size
 
         self.conv_block1 = nn.Sequential(
-            nn.Conv2d(in_channels=shape[0], out_channels=32, kernel_size=5),
+            nn.Conv2d(in_channels=shape[0], out_channels=64, kernel_size=3),
             nn.MaxPool2d(2),
             nn.ReLU(),
         )
 
         self.conv_block2 = nn.Sequential(
-            nn.Conv2d(in_channels=32, out_channels=32, kernel_size=3),
-            nn.MaxPool2d(2),
+            nn.Conv2d(in_channels=64, out_channels=32, kernel_size=3),
+            nn.AvgPool2d(2),
             nn.ReLU(),
         )
 
         self.conv_block3 = nn.Sequential(
-            nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3),
-            nn.MaxPool2d(2),
+            nn.Conv2d(in_channels=32, out_channels=16, kernel_size=3),
+            nn.AvgPool2d(2),
             nn.ReLU(),
         )
 
         self.flatten = nn.Flatten()
         self.interface_shape = self.get_shape()
-        self.linear_block1 = nn.Sequential(
-            nn.Linear(in_features=self.interface_shape.numel(), out_features=64),
-            nn.ReLU(),
-        )
-        self.linear = nn.Linear(in_features=64, out_features=10)
+        self.linear = nn.Linear(in_features=self.interface_shape.numel(), out_features=10)
 
     def get_shape(self):
         sample = torch.randn(size=(self.batch_size, *self.input_shape))
@@ -116,7 +112,6 @@ class SampleCNN(nn.Module):
         out = self.conv_block2(out)
         out = self.conv_block3(out)
         out = self.flatten(out)
-        out = self.linear_block1(out)
         return self.linear(out)
 
 
