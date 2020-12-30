@@ -15,13 +15,13 @@ using only convolutions and fully connected layers and
 */
 
 q7_t conv1_out[CONV1_OUT_CH*CONV1_OUT_DIM*CONV1_OUT_DIM];
-q7_t pool1_out[POOL1_OUT_CH*POOL1_OUT_DIM*POOL1_OUT_DIM];
+q7_t pool1_out[CONV1_OUT_CH*POOL1_OUT_DIM*POOL1_OUT_DIM];
 q7_t conv2_out[CONV2_OUT_CH*CONV2_OUT_DIM*CONV2_OUT_DIM];
-q7_t pool2_out[POOL2_OUT_CH*POOL2_OUT_DIM*POOL2_OUT_DIM];
+q7_t pool2_out[CONV2_OUT_CH*POOL2_OUT_DIM*POOL2_OUT_DIM];
 q7_t conv3_out[CONV3_OUT_CH*CONV3_OUT_DIM*CONV3_OUT_DIM];
-q7_t pool3_out[POOL3_OUT_CH*POOL3_OUT_DIM*POOL3_OUT_DIM];
-q7_t fc1_out[FC1_OUT];
-q7_t y_out[FC1_OUT];
+q7_t pool3_out[CONV3_OUT_CH*POOL3_OUT_DIM*POOL3_OUT_DIM];
+q7_t fc1_out[INTERFACE_OUT];
+q7_t y_out[INTERFACE_OUT];
 
 q7_t conv1_w[CONV1_WT_SHAPE] = CONV1_WT;
 q7_t conv1_b[CONV1_BIAS_SHAPE] = CONV1_BIAS;
@@ -29,12 +29,11 @@ q7_t conv2_w[CONV2_WT_SHAPE] =  CONV2_WT;
 q7_t conv2_b[CONV2_BIAS_SHAPE] = CONV2_BIAS;
 q7_t conv3_w[CONV3_WT_SHAPE] =  CONV3_WT;
 q7_t conv3_b[CONV3_BIAS_SHAPE] = CONV3_BIAS;
-q7_t fc1_w[FC1_WT_SHAPE] = FC1_WT;
-q7_t fc1_b[FC1_BIAS_SHAPE] = FC1_BIAS;
+q7_t fc1_w[INTERFACE_WT_SHAPE] = INTERFACE_WT;
+q7_t fc1_b[INTERFACE_BIAS_SHAPE] = INTERFACE_BIAS;
 
 q7_t conv_buffer[MAX_CONV_BUFFER_SIZE];
 q7_t fc_buffer[MAX_FC_BUFFER];
-
 
 q7_t* load(const char* file)
 {
@@ -66,30 +65,27 @@ uint32_t network(q7_t* input)
 
 	save("logs/conv1_out.raw", conv1_out, sizeof(conv1_out));
     arm_maxpool_q7_HWC(conv1_out, POOL1_IM_DIM, POOL1_IM_CH, POOL1_KER_DIM, POOL1_PADDING, POOL1_STRIDE, POOL1_OUT_DIM, conv_buffer, pool1_out);
-	save("logs/pool1_out.raw", pool1_out, sizeof(pool1_out));
-    arm_relu_q7(pool1_out, POOL1_OUT_DIM * POOL1_OUT_DIM * POOL1_OUT_CH);
+    arm_relu_q7(pool1_out, POOL1_OUT_DIM * POOL1_OUT_DIM * CONV1_OUT_CH);
 
     arm_convolve_HWC_q7_fast(pool1_out, CONV2_IM_DIM, CONV2_IM_CH, conv2_w, CONV2_OUT_CH, CONV2_KER_DIM,
 						  CONV2_PADDING, CONV2_STRIDE, conv2_b, CONV2_BIAS_LSHIFT, CONV2_OUT_RSHIFT, conv2_out,
 						  CONV2_OUT_DIM, (q15_t *) conv_buffer, NULL);
 	save("logs/conv2_out.raw", conv2_out, sizeof(conv2_out));
     arm_avepool_q7_HWC(conv2_out, POOL2_IM_DIM, POOL2_IM_CH, POOL2_KER_DIM, POOL2_PADDING, POOL2_STRIDE, POOL2_OUT_DIM, conv_buffer, pool2_out);
-	save("logs/pool2_out.raw", pool2_out, sizeof(pool2_out));
-    arm_relu_q7(pool2_out, POOL2_OUT_DIM * POOL2_OUT_DIM * POOL2_OUT_CH);
+    arm_relu_q7(pool2_out, POOL2_OUT_DIM * POOL2_OUT_DIM * CONV2_OUT_CH);
 
 	arm_convolve_HWC_q7_fast(pool2_out, CONV3_IM_DIM, CONV3_IM_CH, conv3_w, CONV3_OUT_CH, CONV3_KER_DIM,
 						  CONV3_PADDING, CONV3_STRIDE, conv3_b, CONV3_BIAS_LSHIFT, CONV3_OUT_RSHIFT, conv3_out,
 						  CONV3_OUT_DIM, (q15_t *) conv_buffer, NULL);
 	save("logs/conv3_out.raw", conv3_out, sizeof(conv3_out));
 	arm_avepool_q7_HWC(conv3_out, POOL3_IM_DIM, POOL3_IM_CH, POOL3_KER_DIM, POOL3_PADDING, POOL3_STRIDE, POOL3_OUT_DIM, conv_buffer, pool3_out);
-	save("logs/pool3_out.raw", pool3_out, sizeof(pool3_out));
-	arm_relu_q7(pool3_out, POOL3_OUT_DIM * POOL3_OUT_DIM * POOL3_OUT_CH);
+	arm_relu_q7(pool3_out, POOL3_OUT_DIM * POOL3_OUT_DIM * CONV3_OUT_CH);
 
-	arm_fully_connected_q7_opt(pool3_out, fc1_w, FC1_DIM, FC1_OUT, FC1_BIAS_LSHIFT, FC1_OUT_RSHIFT, fc1_b,
+	arm_fully_connected_q7_opt(pool3_out, fc1_w, INTERFACE_DIM, INTERFACE_OUT, INTERFACE_BIAS_LSHIFT, INTERFACE_OUT_RSHIFT, fc1_b,
 						  fc1_out, (q15_t *) fc_buffer);
-	save("logs/fc1_out.raw", fc1_out, sizeof(fc1_out));
+	save("logs/interface_out.raw", fc1_out, sizeof(fc1_out));
     
-    arm_softmax_q7(fc1_out, FC1_OUT, y_out);
+    arm_softmax_q7(fc1_out, INTERFACE_OUT, y_out);
 	save("logs/y_out.raw", y_out, sizeof(y_out));
 
 	uint32_t index[1];

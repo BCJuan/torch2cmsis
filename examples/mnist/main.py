@@ -1,7 +1,7 @@
 from torch.utils.data import DataLoader
 
 from mnist import SampleCNN, SimpleTrainer, load_mnist
-from torch2cmsis.converter import CMSISConverter
+from torch2cmsis import CMSISConverter
 
 CONFIG = {
     "batch_size": 64,
@@ -47,8 +47,7 @@ def train_mnist_convert(config):
         8,
         config.get("compilation"),
     )
-    cm_converter.generate_intermediate_values(dataloaders["val"])
-    cm_converter.convert_model_cmsis()
+    cm_converter.convert_model(dataloaders["val"])
     cm_converter.evaluate_cmsis(config.get("exec_path"), dataloaders["test"])
     input, label = next(iter(dataloaders["test"]))
     cm_converter.sample_inference_checker(config.get("exec_path"), input, draw=True)

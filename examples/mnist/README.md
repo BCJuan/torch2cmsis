@@ -19,8 +19,12 @@ is of utmost importancy that in your network there is a function called `get_sha
 ```
     def get_shape(self):
         sample = torch.randn(size=(self.batch_size, *self.input_shape))
-        out = self.conv_block1(sample)
-        out = self.conv_block2(out)
+        out = self.conv1(sample)
+        out = self.pool1(out)
+        out = self.relu1(out)
+        out = self.conv2(out)
+        out = self.pool2(out)
+        out = self.relu2(out)       
         return out.shape[1:]
 ```
 
@@ -81,11 +85,31 @@ The compilation line given in this case is:
 ```
 ### Collecting statistics for quantization and convert model
 
-Then, before quantizing, you have to collect statistics for each layer with `generate_intermediate_values`. Finally, you convert the model, i.e. obtain quantized weight and parameters, with `convert_model_cmsis`:
+The procedure to e able to quantize the model is the following (see [ARM CMSIS Quantizer for Caffe](https://github.com/ARM-software/ML-examples/blob/master/cmsisnn-cifar10/nn_quantizer.py) ):
+
++ Collect statistics for input, output, weight and bias
++ Extract all parameters for CMSIS
++ Refine weight, bias and activation Q.Q. format heuristically
++ Convert weights and save files
+
+If you want, you only need to make a call to `cm_converter.convert_model(<dataloader>)`:
 
 ```
-    cm_converter.generate_intermediate_values(dataloaders['val'])
-    cm_converter.convert_model_cmsis()
+cm_converter.convert_model(dataloaders["val"])
+```
+
+However, this function calls all the sequence of steps detailed previously:
+
+```
+    def convert_model(self, loader):
+        self.generate_intermediate_values(loader) # statistics
+        self.save_params_model() # saving the params
+        self.refine_model_weights(loader) # refining weights Q.Q
+        self.refine_model_weights(loader, bias=True) # same for bias
+        self.refine_activations(loader) # same for activation
+        self.reassign_q_params_n_shifts() # checking graph connectivity to arrange Q.Q input and output match
+        self.write_shifts_n_params() # write all the Q.Q params
+        self.convert_weights() # convert and save weights
 ```
 
 ### Building your network

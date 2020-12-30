@@ -76,40 +76,42 @@ class SampleCNN(nn.Module):
         self.input_shape = shape
         self.batch_size = batch_size
 
-        self.conv_block1 = nn.Sequential(
-            nn.Conv2d(in_channels=shape[0], out_channels=8, kernel_size=5),
-            nn.MaxPool2d(2),
-            nn.ReLU(),
-        )
-
-        self.conv_block2 = nn.Sequential(
-            nn.Conv2d(in_channels=8, out_channels=4, kernel_size=3),
-            nn.MaxPool2d(2),
-            nn.ReLU(),
-        )
-
+        self.conv1 = nn.Conv2d(in_channels=shape[0], out_channels=8, kernel_size=5)
+        self.pool1 = nn.MaxPool2d(2)
+        self.relu1 = nn.ReLU()
+        
+        self.conv2 = nn.Conv2d(in_channels=8, out_channels=4, kernel_size=3)
+        self.pool2 = nn.MaxPool2d(2)
+        self.relu2 = nn.ReLU()
+        
         self.flatten = nn.Flatten()
         self.interface_shape = self.get_shape()
 
-        self.linear_block1 = nn.Sequential(
-            nn.Linear(
-                in_features=self.interface_shape.numel(), out_features=32
-            ),
-            nn.ReLU(),
-        )
+        self.interface = nn.Linear(in_features=self.interface_shape.numel(), out_features=32)
+        self.relu3 = nn.ReLU()
+        
         self.linear = nn.Linear(in_features=32, out_features=10)
 
     def get_shape(self):
         sample = torch.randn(size=(self.batch_size, *self.input_shape))
-        out = self.conv_block1(sample)
-        out = self.conv_block2(out)
+        out = self.conv1(sample)
+        out = self.pool1(out)
+        out = self.relu1(out)
+        out = self.conv2(out)
+        out = self.pool2(out)
+        out = self.relu2(out)       
         return out.shape[1:]
 
     def forward(self, x):
-        out = self.conv_block1(x)
-        out = self.conv_block2(out)
+        out = self.conv1(x)
+        out = self.pool1(out)
+        out = self.relu1(out)
+        out = self.conv2(out)
+        out = self.pool2(out)
+        out = self.relu2(out) 
         out = self.flatten(out)
-        out = self.linear_block1(out)
+        out = self.interface(out)
+        out = self.relu3(out)
         return self.linear(out)
 
 

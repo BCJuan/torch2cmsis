@@ -1,12 +1,12 @@
 from torch.utils.data import DataLoader
 
 from cifar import SampleCNN, SimpleTrainer, load_cifar
-from torch2cmsis.converter import CMSISConverter
+from torch2cmsis import CMSISConverter
 
 
 CONFIG = {
-    "batch_size": 8,
-    "epochs": 1,
+    "batch_size": 16,
+    "epochs": 20,
     "learning_rate": 0.001,
     "learning_step": 5000,
     "learning_gamma": 0.99,
@@ -36,7 +36,6 @@ def train_cifar(config):
     trainer = SimpleTrainer(datasets=datasets, dataloaders=dataloaders)
     cnn = trainer.train(cnn, config, config.get("name"))
     accuracy_test = trainer.evaluate(cnn)
-    cnn.to("cpu")
     cnn.eval()
 
     print("Accuracy for test set with PyTorch ", accuracy_test)
@@ -48,8 +47,7 @@ def train_cifar(config):
         8,
         config.get("compilation"),
     )
-    cm_converter.generate_intermediate_values(dataloaders["val"])
-    cm_converter.convert_model_cmsis()
+    cm_converter.convert_model(dataloaders["val"])
     cm_converter.evaluate_cmsis(config.get("exec_path"), dataloaders["test"])
     input, label = next(iter(dataloaders["test"]))
     cm_converter.sample_inference_checker(config.get("exec_path"), input, draw=True)
